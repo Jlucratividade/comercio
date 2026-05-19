@@ -1,0 +1,889 @@
+<html lang="pt-BR"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Comércio do Bairro</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css">
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&amp;display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/vue@2/dist/vue.js"></script>
+<script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --green-dark: #075e54;
+    --green-mid: #128c7e;
+    --green-light: #25D366;
+    --red: #ff4444;
+    --bg: #ece5dd;
+    --card-bg: #fff;
+    --text: #111;
+    --text-light: #667781;
+    --border: #e0e0e0;
+    --header-h: 58px;
+    --radius: 12px;
+  }
+
+  html, body {
+    height: 100%; width: 100%;
+    overflow: hidden;
+    font-family: 'Nunito', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  #app {
+    height: 100vh; width: 100vw;
+    display: flex; flex-direction: column;
+    position: relative; overflow: hidden;
+  }
+
+  /* ── HEADER ─────────────────────────────────────── */
+  .wh-header {
+    height: var(--header-h);
+    background: var(--green-dark);
+    display: flex; align-items: center;
+    padding: 0 12px; gap: 10px;
+    flex-shrink: 0;
+    box-shadow: 0 2px 6px rgba(0,0,0,.3);
+    z-index: 100;
+  }
+  .wh-header .back-btn {
+    background: none; border: none; cursor: pointer;
+    color: #fff; display: flex; align-items: center;
+    padding: 6px; border-radius: 50%;
+    transition: background .15s;
+  }
+  .wh-header .back-btn:active { background: rgba(255,255,255,.15); }
+  .wh-header .back-btn .material-icons { font-size: 26px; }
+  .wh-header .title-block { flex: 1; overflow: hidden; }
+  .wh-header h1 { font-size: 18px; font-weight: 800; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .wh-header p  { font-size: 12px; color: rgba(255,255,255,.7); }
+  .wh-header .cart-btn {
+    position: relative; background: none; border: none;
+    cursor: pointer; color: #fff; display: flex;
+    align-items: center; padding: 6px; border-radius: 50%;
+    transition: background .15s;
+  }
+  .wh-header .cart-btn:active { background: rgba(255,255,255,.15); }
+  .wh-header .cart-btn .material-icons { font-size: 26px; }
+  .cart-badge {
+    position: absolute; top: 0; right: 0;
+    background: var(--red); color: #fff;
+    font-size: 10px; font-weight: 800;
+    min-width: 17px; height: 17px;
+    border-radius: 999px; display: flex;
+    align-items: center; justify-content: center;
+    padding: 0 4px;
+  }
+
+  /* ── VIEWS CONTAINER ─────────────────────────────── */
+  .views-wrap {
+    flex: 1; position: relative; overflow: hidden;
+  }
+  .view {
+    position: absolute; top: 0; left: 0;
+    width: 100%; height: 100%;
+    overflow-y: auto;
+    background: var(--bg);
+    transition: transform .3s cubic-bezier(.4,0,.2,1);
+    will-change: transform;
+    -webkit-overflow-scrolling: touch;
+  }
+  .view.slide-left  { transform: translateX(-100%); }
+  .view.slide-right { transform: translateX(100%); }
+  .view.slide-center{ transform: translateX(0); }
+
+  /* ── SEARCH BAR ──────────────────────────────────── */
+  .search-bar {
+    padding: 10px 12px 4px;
+    position: sticky; top: 0;
+    background: var(--bg); z-index: 10;
+  }
+  .search-bar input {
+    width: 100%; padding: 9px 14px 9px 38px;
+    border: none; border-radius: 999px;
+    background: #fff; font-size: 14px;
+    font-family: 'Nunito', sans-serif;
+    box-shadow: 0 1px 4px rgba(0,0,0,.1);
+    outline: none;
+  }
+  .search-wrap {
+    position: relative;
+  }
+  .search-wrap .material-icons {
+    position: absolute; left: 10px; top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-light); font-size: 19px;
+  }
+
+  /* ── SECTION HEADER ──────────────────────────────── */
+  .section-label {
+    padding: 14px 14px 6px;
+    font-size: 12px; font-weight: 700;
+    color: var(--green-mid); text-transform: uppercase;
+    letter-spacing: .6px;
+  }
+
+  /* ── LIST ITEM (RUAS / EMPRESAS) ─────────────────── */
+  .list-item {
+    display: flex; align-items: center;
+    padding: 12px 14px; gap: 14px;
+    background: var(--card-bg);
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    transition: background .12s;
+    text-decoration: none; color: inherit;
+  }
+  .list-item:active { background: #f0f0f0; }
+  .item-avatar {
+    width: 50px; height: 50px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; font-size: 24px;
+  }
+  .item-body { flex: 1; overflow: hidden; }
+  .item-body .name {
+    font-size: 15px; font-weight: 700;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .item-body .sub {
+    font-size: 13px; color: var(--text-light); margin-top: 2px;
+  }
+  .item-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+  .count-badge {
+    background: var(--green-mid); color: #fff;
+    font-size: 11px; font-weight: 800;
+    padding: 2px 8px; border-radius: 999px;
+  }
+  .chev .material-icons { color: #ccc; font-size: 20px; }
+
+  /* ── EMPRESA HEADER CARD ─────────────────────────── */
+  .biz-hero {
+    background: linear-gradient(135deg, var(--green-dark), var(--green-mid));
+    padding: 22px 16px 18px;
+    display: flex; align-items: center; gap: 16px;
+  }
+  .biz-hero .avatar {
+    width: 62px; height: 62px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 32px; background: rgba(255,255,255,.15);
+    border: 2px solid rgba(255,255,255,.3);
+  }
+  .biz-hero .info h2 { color: #fff; font-size: 17px; font-weight: 800; }
+  .biz-hero .info p  { color: rgba(255,255,255,.8); font-size: 13px; margin-top: 3px; }
+  .biz-hero .info .tag {
+    display: inline-block; margin-top: 6px;
+    background: rgba(255,255,255,.2); color: #fff;
+    font-size: 11px; font-weight: 700;
+    padding: 2px 10px; border-radius: 999px;
+  }
+
+  /* ── PRODUCT CARD ────────────────────────────────── */
+  .products-list { padding: 10px 12px 90px; display: flex; flex-direction: column; gap: 10px; }
+  .product-card {
+    background: var(--card-bg); border-radius: var(--radius);
+    padding: 14px 14px;
+    box-shadow: 0 1px 4px rgba(0,0,0,.07);
+    display: flex; align-items: flex-start; gap: 12px;
+  }
+  .product-emoji { font-size: 36px; flex-shrink: 0; line-height: 1; }
+  .product-info { flex: 1; }
+  .product-info .pname { font-size: 14px; font-weight: 700; }
+  .product-info .pdesc { font-size: 12px; color: var(--text-light); margin-top: 2px; }
+  .product-info .pprice { font-size: 15px; font-weight: 800; color: var(--green-mid); margin-top: 6px; }
+  .add-btn {
+    margin-top: 8px; background: var(--green-dark); color: #fff;
+    border: none; border-radius: 999px; cursor: pointer;
+    padding: 5px 14px; font-size: 13px; font-weight: 700;
+    font-family: 'Nunito', sans-serif;
+    transition: background .15s, transform .1s;
+    display: flex; align-items: center; gap: 4px;
+    float: right;
+  }
+  .add-btn:active { transform: scale(.95); }
+  .qty-control {
+    display: flex; align-items: center; gap: 8px;
+    margin-top: 8px; float: right;
+  }
+  .qty-control button {
+    width: 28px; height: 28px; border-radius: 50%;
+    border: none; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; font-weight: 700;
+    transition: transform .1s;
+  }
+  .qty-control button:active { transform: scale(.9); }
+  .qty-control .minus { background: var(--red); color: #fff; }
+  .qty-control .plus  { background: var(--green-dark); color: #fff; }
+  .qty-control .qty   { font-size: 15px; font-weight: 800; min-width: 20px; text-align: center; }
+
+  /* ── MAP VIEW ────────────────────────────────────── */
+  .map-view { padding: 14px 12px 90px; }
+  .map-contact-card {
+    background: #fff; border-radius: var(--radius);
+    padding: 16px; margin-bottom: 14px;
+    box-shadow: 0 1px 4px rgba(0,0,0,.08);
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .map-contact-card h3 { font-size: 15px; font-weight: 800; }
+  .map-contact-card p  { font-size: 13px; color: var(--text-light); }
+  .contact-btn {
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    background: var(--green-light); color: #fff;
+    border: none; border-radius: 999px;
+    padding: 11px; font-size: 14px; font-weight: 800;
+    font-family: 'Nunito', sans-serif;
+    cursor: pointer; width: 100%;
+    text-decoration: none;
+    transition: background .15s;
+  }
+  .contact-btn:active { background: #1ebe5a; }
+  #leaflet-map { height: 300px; border-radius: var(--radius); overflow: hidden; }
+
+  /* ── FLOATING CART BTN ───────────────────────────── */
+  .float-cart {
+    position: fixed; bottom: 22px; right: 18px;
+    width: 58px; height: 58px; border-radius: 50%;
+    background: var(--green-light);
+    box-shadow: 0 4px 14px rgba(37,211,102,.5);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; z-index: 200;
+    border: none;
+    transition: transform .15s;
+  }
+  .float-cart:active { transform: scale(.92); }
+  .float-cart .material-icons { color: #fff; font-size: 28px; }
+  .float-cart .f-badge {
+    position: absolute; top: -2px; right: -2px;
+    background: var(--red); color: #fff;
+    font-size: 11px; font-weight: 800;
+    min-width: 20px; height: 20px;
+    border-radius: 999px; display: flex;
+    align-items: center; justify-content: center;
+    padding: 0 4px;
+    border: 2px solid #fff;
+  }
+
+  /* ── CART OVERLAY & PANEL ────────────────────────── */
+  .overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,.5);
+    z-index: 300; transition: opacity .3s;
+  }
+  .overlay.enter  { opacity: 0; }
+  .overlay.active { opacity: 1; }
+
+  .cart-panel {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    background: #fff; z-index: 310;
+    border-radius: 20px 20px 0 0;
+    padding: 0 0 env(safe-area-inset-bottom, 0);
+    max-height: 80vh;
+    display: flex; flex-direction: column;
+    transform: translateY(100%);
+    transition: transform .35s cubic-bezier(.4,0,.2,1);
+  }
+  .cart-panel.open { transform: translateY(0); }
+
+  .cart-handle {
+    width: 40px; height: 4px;
+    background: #ddd; border-radius: 2px;
+    margin: 12px auto 4px;
+  }
+  .cart-title {
+    padding: 8px 18px 12px;
+    font-size: 16px; font-weight: 800;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .cart-title .material-icons { color: var(--green-mid); }
+  .cart-items { overflow-y: auto; flex: 1; }
+  .cart-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 18px;
+    border-bottom: 1px solid var(--border);
+  }
+  .cart-item .cname { flex: 1; font-size: 14px; font-weight: 600; }
+  .cart-item .cqty  { font-size: 13px; color: var(--text-light); }
+  .cart-item .cprice { font-size: 14px; font-weight: 800; color: var(--green-mid); }
+  .cart-item .remove-btn {
+    background: none; border: none; cursor: pointer;
+    color: var(--red); display: flex; align-items: center;
+    padding: 4px;
+  }
+  .cart-empty {
+    padding: 40px; text-align: center;
+    color: var(--text-light); font-size: 14px;
+  }
+  .cart-footer {
+    padding: 14px 18px;
+    border-top: 1px solid var(--border);
+  }
+  .cart-total {
+    display: flex; justify-content: space-between;
+    font-size: 15px; font-weight: 800; margin-bottom: 12px;
+  }
+  .checkout-btn {
+    width: 100%; background: var(--green-light);
+    color: #fff; border: none; border-radius: 999px;
+    padding: 14px; font-size: 15px; font-weight: 800;
+    font-family: 'Nunito', sans-serif;
+    cursor: pointer; display: flex; align-items: center;
+    justify-content: center; gap: 8px;
+    transition: background .15s;
+  }
+  .checkout-btn:active { background: #1ebe5a; }
+  .checkout-btn .material-icons { font-size: 20px; }
+
+  /* ── EMPTY STATE ─────────────────────────────────── */
+  .empty-state {
+    padding: 60px 30px; text-align: center;
+    color: var(--text-light);
+  }
+  .empty-state .material-icons { font-size: 56px; margin-bottom: 12px; }
+  .empty-state p { font-size: 15px; }
+
+  /* ── MISC ────────────────────────────────────────── */
+  .divider { height: 8px; background: var(--bg); }
+  .pb-safe { padding-bottom: 80px; }
+</style>
+<link rel="manifest" href="manifest.json"></head>
+<body>
+<div id="app">
+
+  <!-- HEADER -->
+  <div class="wh-header">
+    <button v-if="currentView !== 'ruas'" class="back-btn" @click="goBack">
+      <span class="material-icons">arrow_back</span>
+    </button>
+    <div class="title-block">
+      <h1>{{ headerTitle }}</h1>
+      <p v-if="headerSub">{{ headerSub }}</p>
+    </div>
+    <button v-if="currentView === 'produtos' &amp;&amp; currentBiz &amp;&amp; currentBiz.products.length" class="cart-btn" @click="cartOpen = true">
+      <span class="material-icons">shopping_cart</span>
+      <span v-if="cartCount &gt; 0" class="cart-badge">{{ cartCount }}</span>
+    </button>
+  </div>
+
+  <!-- VIEWS -->
+  <div class="views-wrap">
+
+    <!-- VIEW 1: RUAS -->
+    <div class="view" :class="viewClass('ruas')">
+      <div class="search-bar">
+        <div class="search-wrap">
+          <span class="material-icons">search</span>
+          <input v-model="searchRua" placeholder="Buscar rua...">
+        </div>
+      </div>
+      <div class="section-label">{{ filteredRuas.length }} rua{{ filteredRuas.length !== 1 ? 's' : '' }} no bairro</div>
+      <div v-for="rua in filteredRuas" :key="rua.id" class="list-item" @click="selectRua(rua)">
+        <div class="item-avatar" :style="{ background: rua.color + '22' }">{{ rua.icon }}</div>
+        <div class="item-body">
+          <div class="name">{{ rua.name }}</div>
+          <div class="sub">{{ rua.bairro }}</div>
+        </div>
+        <div class="item-meta">
+          <span class="count-badge">{{ rua.empresas.length }}</span>
+        </div>
+        <div class="chev"><span class="material-icons">chevron_right</span></div>
+      </div>
+      <div v-if="filteredRuas.length === 0" class="empty-state">
+        <span class="material-icons">search_off</span>
+        <p>Nenhuma rua encontrada</p>
+      </div>
+    </div>
+
+    <!-- VIEW 2: EMPRESAS -->
+    <div class="view" :class="viewClass('empresas')">
+      <div v-if="currentRua">
+        <div class="section-label">{{ currentRua.empresas.length }} estabelecimento{{ currentRua.empresas.length !== 1 ? 's' : '' }}</div>
+        <div v-for="biz in currentRua.empresas" :key="biz.id" class="list-item" @click="selectBiz(biz)">
+          <div class="item-avatar" :style="{ background: biz.color + '22' }">{{ biz.icon }}</div>
+          <div class="item-body">
+            <div class="name">{{ biz.name }}</div>
+            <div class="sub">{{ biz.category }} · {{ biz.products.length ? biz.products.length + ' produtos' : 'Ver localização' }}</div>
+          </div>
+          <div class="chev"><span class="material-icons">chevron_right</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW 3: PRODUTOS ou MAPA -->
+    <div class="view" :class="viewClass('produtos')">
+      <div v-if="currentBiz">
+        <!-- Hero -->
+        <div class="biz-hero">
+          <div class="avatar">{{ currentBiz.icon }}</div>
+          <div class="info">
+            <h2>{{ currentBiz.name }}</h2>
+            <p>{{ currentBiz.address }}</p>
+            <span class="tag">{{ currentBiz.category }}</span>
+          </div>
+        </div>
+
+        <!-- PRODUTOS -->
+        <div v-if="currentBiz.products.length">
+          <div class="section-label">Cardápio / Produtos</div>
+          <div class="products-list">
+            <div v-for="prod in currentBiz.products" :key="prod.id" class="product-card">
+              <span class="product-emoji">{{ prod.emoji }}</span>
+              <div class="product-info">
+                <div class="pname">{{ prod.name }}</div>
+                <div class="pdesc">{{ prod.desc }}</div>
+                <div class="pprice">R$ {{ prod.price.toFixed(2).replace('.', ',') }}</div>
+                <div v-if="cartQty(prod.id) &gt; 0" class="qty-control">
+                  <button class="minus" @click="decQty(prod)"><span class="material-icons" style="font-size:18px">remove</span></button>
+                  <span class="qty">{{ cartQty(prod.id) }}</span>
+                  <button class="plus" @click="addToCart(prod)"><span class="material-icons" style="font-size:18px">add</span></button>
+                </div>
+                <button v-else="" class="add-btn" @click="addToCart(prod)">
+                  <span class="material-icons" style="font-size:16px">add</span> Adicionar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- MAPA (sem produtos) -->
+        <div v-else="" class="map-view">
+          <div class="map-contact-card">
+            <h3>📍 Localização</h3>
+            <p>{{ currentBiz.name }} está localizado em {{ currentBiz.address }}</p>
+            <a :href="'tel:' + currentBiz.phone" class="contact-btn">
+              <span class="material-icons" style="font-size:18px">phone</span>
+              Entrar em contato — {{ currentBiz.phone }}
+            </a>
+          </div>
+          <div id="leaflet-map"></div>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+
+  <!-- FLOATING CART (only on produtos view with products) -->
+  <button v-if="currentView === 'produtos' &amp;&amp; currentBiz &amp;&amp; currentBiz.products.length &amp;&amp; cartCount &gt; 0" class="float-cart" @click="cartOpen = true">
+    <span class="material-icons">shopping_cart</span>
+    <span class="f-badge">{{ cartCount }}</span>
+  </button>
+
+  <!-- OVERLAY -->
+  <transition name="fade">
+    <div v-if="cartOpen" class="overlay" @click="cartOpen = false"></div>
+  </transition>
+
+  <!-- CART PANEL -->
+  <div class="cart-panel" :class="{ open: cartOpen }">
+    <div class="cart-handle"></div>
+    <div class="cart-title">
+      <span class="material-icons">shopping_cart</span>
+      Meu Carrinho
+    </div>
+    <div class="cart-items">
+      <div v-if="cart.length === 0" class="cart-empty">
+        <span class="material-icons" style="font-size:48px;margin-bottom:8px;display:block">remove_shopping_cart</span>
+        Carrinho vazio
+      </div>
+      <div v-for="item in cart" :key="item.id" class="cart-item">
+        <span style="font-size:22px">{{ item.emoji }}</span>
+        <div class="cname">{{ item.name }}</div>
+        <div class="cqty">x{{ item.qty }}</div>
+        <div class="cprice">R$ {{ (item.price * item.qty).toFixed(2).replace('.', ',') }}</div>
+        <button class="remove-btn" @click="removeFromCart(item)">
+          <span class="material-icons" style="font-size:18px">delete</span>
+        </button>
+      </div>
+    </div>
+    <div v-if="cart.length &gt; 0" class="cart-footer">
+      <div class="cart-total">
+        <span>Total</span>
+        <span>R$ {{ cartTotal.replace('.', ',') }}</span>
+      </div>
+      <button class="checkout-btn" @click="finalizarPedido">
+        <span class="material-icons">whatsapp</span>
+        Finalizar pelo WhatsApp
+      </button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const CIDADES = [
+  { lat: -8.2789, lng: -35.9728, nome: 'Caruaru, PE' },
+  { lat: -8.0539, lng: -34.8811, nome: 'Recife, PE' },
+  { lat: -8.3619, lng: -36.5216, nome: 'Garanhuns, PE' },
+  { lat: -7.9167, lng: -38.3500, nome: 'Salgueiro, PE' },
+  { lat: -3.7172,  lng: -38.5433, nome: 'Fortaleza, CE' },
+];
+
+const DATA = [
+  {
+    id: 1,
+    name: 'Rua das Flores',
+    bairro: 'Centro',
+    icon: '🌸',
+    color: '#e91e63',
+    empresas: [
+      {
+        id: 101,
+        name: 'Padaria Pão de Mel',
+        category: 'Padaria',
+        icon: '🍞',
+        color: '#ff9800',
+        address: 'Rua das Flores, 45 — Centro',
+        phone: '81991234567',
+        whatsapp: '5581991234567',
+        products: [
+          { id: 1001, name: 'Pão Francês', emoji: '🥖', desc: 'Crocante por fora, macio por dentro', price: 0.75 },
+          { id: 1002, name: 'Bolo de Rolo', emoji: '🎂', desc: 'Tradicional pernambucano com goiabada', price: 18.00 },
+          { id: 1003, name: 'Coxinha de Frango', emoji: '🍗', desc: 'Recheio cremoso, massa fininha', price: 5.50 },
+          { id: 1004, name: 'Café Preto', emoji: '☕', desc: 'Grão 100% arábica torrado na hora', price: 3.00 },
+          { id: 1005, name: 'Tapioca', emoji: '🫓', desc: 'Com queijo coalho e manteiga de garrafa', price: 7.00 },
+        ]
+      },
+      {
+        id: 102,
+        name: 'Farmácia Saúde & Vida',
+        category: 'Farmácia',
+        icon: '💊',
+        color: '#4caf50',
+        address: 'Rua das Flores, 112 — Centro',
+        phone: '81994445566',
+        whatsapp: '5581994445566',
+        products: []
+      },
+      {
+        id: 103,
+        name: 'Lanchonete do Zé',
+        category: 'Lanchonete',
+        icon: '🍔',
+        color: '#f44336',
+        address: 'Rua das Flores, 200 — Centro',
+        phone: '81997776655',
+        whatsapp: '5581997776655',
+        products: [
+          { id: 1010, name: 'X-Burguer', emoji: '🍔', desc: 'Pão artesanal, 180g de carne, queijo', price: 22.00 },
+          { id: 1011, name: 'Batata Frita', emoji: '🍟', desc: 'Porção grande com cheddar e bacon', price: 16.00 },
+          { id: 1012, name: 'Refrigerante Lata', emoji: '🥤', desc: 'Coca, Guaraná ou Sprite', price: 6.00 },
+          { id: 1013, name: 'Milk Shake', emoji: '🍦', desc: 'Chocolate, morango ou baunilha', price: 18.00 },
+        ]
+      },
+    ]
+  },
+  {
+    id: 2,
+    name: 'Av. Brasil',
+    bairro: 'Novo Caruaru',
+    icon: '🏪',
+    color: '#2196f3',
+    empresas: [
+      {
+        id: 201,
+        name: 'Mercadinho Bom Preço',
+        category: 'Mercado',
+        icon: '🛒',
+        color: '#2196f3',
+        address: 'Av. Brasil, 320 — Novo Caruaru',
+        phone: '81992223344',
+        whatsapp: '5581992223344',
+        products: [
+          { id: 2001, name: 'Arroz 5kg', emoji: '🍚', desc: 'Tipo 1, grão longo fino', price: 28.90 },
+          { id: 2002, name: 'Feijão Carioca 1kg', emoji: '🫘', desc: 'Feijão carioca selecionado', price: 9.90 },
+          { id: 2003, name: 'Macarrão Espaguete', emoji: '🍝', desc: 'Massa de sêmola 500g', price: 4.50 },
+          { id: 2004, name: 'Óleo de Soja 900ml', emoji: '🫙', desc: 'Refinado, sem gordura trans', price: 7.80 },
+          { id: 2005, name: 'Leite Integral 1L', emoji: '🥛', desc: 'Pasteurizado, longa vida', price: 5.20 },
+          { id: 2006, name: 'Sabão em Pó 1kg', emoji: '🧼', desc: 'Perfumado, remove manchas difíceis', price: 11.50 },
+        ]
+      },
+      {
+        id: 202,
+        name: 'Auto Peças Pinheiro',
+        category: 'Oficina / Auto Peças',
+        icon: '🔧',
+        color: '#607d8b',
+        address: 'Av. Brasil, 540 — Novo Caruaru',
+        phone: '81988776655',
+        whatsapp: '5581988776655',
+        products: []
+      },
+      {
+        id: 203,
+        name: 'Açaí do Pedro',
+        category: 'Sorveteria',
+        icon: '🍇',
+        color: '#9c27b0',
+        address: 'Av. Brasil, 615 — Novo Caruaru',
+        phone: '81995554433',
+        whatsapp: '5581995554433',
+        products: [
+          { id: 2010, name: 'Açaí 300ml', emoji: '🍇', desc: 'Com banana, granola e mel', price: 14.00 },
+          { id: 2011, name: 'Açaí 500ml', emoji: '🫐', desc: 'Com frutas e cobertura à escolha', price: 22.00 },
+          { id: 2012, name: 'Smoothie de Manga', emoji: '🥭', desc: 'Polpa natural, sem corantes', price: 16.00 },
+          { id: 2013, name: 'Picolé Artesanal', emoji: '🍭', desc: 'Sabores do dia: caju ou tamarindo', price: 6.00 },
+        ]
+      },
+    ]
+  },
+  {
+    id: 3,
+    name: 'Rua São Pedro',
+    bairro: 'São Francisco',
+    icon: '⛪',
+    color: '#ff9800',
+    empresas: [
+      {
+        id: 301,
+        name: 'Restaurante Sabor do Sertão',
+        category: 'Restaurante',
+        icon: '🍽️',
+        color: '#795548',
+        address: 'Rua São Pedro, 77 — São Francisco',
+        phone: '81993334455',
+        whatsapp: '5581993334455',
+        products: [
+          { id: 3001, name: 'Baião de Dois', emoji: '🫘', desc: 'Arroz, feijão-verde, queijo e charque', price: 29.90 },
+          { id: 3002, name: 'Carne de Sol Grelhada', emoji: '🥩', desc: 'Com macaxeira frita e manteiga', price: 38.00 },
+          { id: 3003, name: 'Frango Caipira', emoji: '🍗', desc: 'Frango ao molho com pirão', price: 33.00 },
+          { id: 3004, name: 'Sumo de Caju', emoji: '🧃', desc: 'Suco natural 400ml', price: 8.00 },
+          { id: 3005, name: 'Sobremesa do Dia', emoji: '🍮', desc: 'Pergunte ao garçom', price: 12.00 },
+        ]
+      },
+      {
+        id: 302,
+        name: 'Barbearia Estilo',
+        category: 'Barbearia',
+        icon: '✂️',
+        color: '#37474f',
+        address: 'Rua São Pedro, 140 — São Francisco',
+        phone: '81991112233',
+        whatsapp: '5581991112233',
+        products: []
+      },
+      {
+        id: 303,
+        name: 'Hortifrúti Verde Campo',
+        category: 'Hortifrúti',
+        icon: '🥬',
+        color: '#66bb6a',
+        address: 'Rua São Pedro, 203 — São Francisco',
+        phone: '81996668877',
+        whatsapp: '5581996668877',
+        products: [
+          { id: 3010, name: 'Alface Crespa', emoji: '🥬', desc: 'Fresca, colhida toda manhã', price: 2.50 },
+          { id: 3011, name: 'Tomate (kg)', emoji: '🍅', desc: 'Tomate salada maduro', price: 6.90 },
+          { id: 3012, name: 'Banana Prata (dz)', emoji: '🍌', desc: 'Banana madura, doce natural', price: 5.00 },
+          { id: 3013, name: 'Maça Fuji (kg)', emoji: '🍎', desc: 'Importada, crocante e adocicada', price: 12.90 },
+          { id: 3014, name: 'Mandioca (kg)', emoji: '🌿', desc: 'Macaxeira branca, sem fiapo', price: 4.50 },
+        ]
+      },
+    ]
+  },
+  {
+    id: 4,
+    name: 'Rua das Acácias',
+    bairro: 'Indianópolis',
+    icon: '🌳',
+    color: '#009688',
+    empresas: [
+      {
+        id: 401,
+        name: 'Pizzaria Bella Napoli',
+        category: 'Pizzaria',
+        icon: '🍕',
+        color: '#e53935',
+        address: 'Rua das Acácias, 55 — Indianópolis',
+        phone: '81995151515',
+        whatsapp: '5581995151515',
+        products: [
+          { id: 4001, name: 'Pizza Margherita', emoji: '🍕', desc: 'Molho, mussarela e manjericão fresco', price: 45.00 },
+          { id: 4002, name: 'Pizza Calabresa', emoji: '🌶️', desc: 'Com calabresa artesanal e cebola', price: 48.00 },
+          { id: 4003, name: 'Calzone de Frango', emoji: '🫓', desc: 'Catupiry, champignon e milho', price: 39.00 },
+          { id: 4004, name: 'Refrigerante 2L', emoji: '🥤', desc: 'Coca-Cola ou Guaraná', price: 12.00 },
+        ]
+      },
+      {
+        id: 402,
+        name: 'Clínica Dentária Sorriso',
+        category: 'Clínica',
+        icon: '🦷',
+        color: '#00bcd4',
+        address: 'Rua das Acácias, 130 — Indianópolis',
+        phone: '81998989898',
+        whatsapp: '5581998989898',
+        products: []
+      },
+    ]
+  },
+];
+
+new Vue({
+  el: '#app',
+  data: {
+    ruas: DATA,
+    currentView: 'ruas',
+    prevView: null,
+    directionForward: true,
+    currentRua: null,
+    currentBiz: null,
+    searchRua: '',
+    cart: [],
+    cartOpen: false,
+    leafletMap: null,
+  },
+  computed: {
+    filteredRuas() {
+      const q = this.searchRua.toLowerCase();
+      return this.ruas.filter(r =>
+        r.name.toLowerCase().includes(q) || r.bairro.toLowerCase().includes(q)
+      );
+    },
+    cartCount() {
+      return this.cart.reduce((s, i) => s + i.qty, 0);
+    },
+    cartTotal() {
+      return this.cart.reduce((s, i) => s + i.price * i.qty, 0).toFixed(2);
+    },
+    headerTitle() {
+      if (this.currentView === 'ruas') return '🏘️ Comércio do Bairro';
+      if (this.currentView === 'empresas') return this.currentRua ? this.currentRua.name : '';
+      if (this.currentView === 'produtos') return this.currentBiz ? this.currentBiz.name : '';
+      return '';
+    },
+    headerSub() {
+      if (this.currentView === 'empresas' && this.currentRua) return this.currentRua.bairro;
+      if (this.currentView === 'produtos' && this.currentBiz) return this.currentBiz.category;
+      return '';
+    },
+  },
+  methods: {
+    viewClass(view) {
+      if (this.currentView === view) return 'slide-center';
+      const views = ['ruas', 'empresas', 'produtos'];
+      const ci = views.indexOf(this.currentView);
+      const vi = views.indexOf(view);
+      return vi < ci ? 'slide-left' : 'slide-right';
+    },
+    selectRua(rua) {
+      this.currentRua = rua;
+      this.cart = [];
+      this.currentView = 'empresas';
+    },
+    selectBiz(biz) {
+      this.currentBiz = biz;
+      this.cart = [];
+      this.currentView = 'produtos';
+      if (!biz.products.length) {
+        this.$nextTick(() => this.initMap(biz));
+      }
+    },
+    goBack() {
+      if (this.currentView === 'produtos') {
+        this.cart = [];
+        this.currentView = 'empresas';
+      } else if (this.currentView === 'empresas') {
+        this.currentView = 'ruas';
+        this.currentRua = null;
+      }
+    },
+    cartQty(prodId) {
+      const item = this.cart.find(i => i.id === prodId);
+      return item ? item.qty : 0;
+    },
+    addToCart(prod) {
+      const item = this.cart.find(i => i.id === prod.id);
+      if (item) {
+        item.qty++;
+      } else {
+        this.cart.push({ ...prod, qty: 1 });
+      }
+    },
+    decQty(prod) {
+      const idx = this.cart.findIndex(i => i.id === prod.id);
+      if (idx === -1) return;
+      if (this.cart[idx].qty <= 1) {
+        this.cart.splice(idx, 1);
+      } else {
+        this.cart[idx].qty--;
+      }
+    },
+    removeFromCart(item) {
+      const idx = this.cart.findIndex(i => i.id === item.id);
+      if (idx !== -1) this.cart.splice(idx, 1);
+    },
+    finalizarPedido() {
+      if (!this.currentBiz || this.cart.length === 0) return;
+      let msg = `*Pedido — ${this.currentBiz.name}*\n\n`;
+      this.cart.forEach(i => {
+        msg += `• ${i.name} x${i.qty} — R$ ${(i.price * i.qty).toFixed(2).replace('.', ',')}\n`;
+      });
+      msg += `\n*Total: R$ ${this.cartTotal.replace('.', ',')}*`;
+      msg += `\n\n_Pedido feito pelo Comércio do Bairro_ 🛒`;
+      const encoded = encodeURIComponent(msg);
+      window.open(`https://wa.me/${this.currentBiz.whatsapp}?text=${encoded}`, '_blank');
+    },
+    initMap(biz) {
+      if (this.leafletMap) {
+        this.leafletMap.remove();
+        this.leafletMap = null;
+      }
+      const el = document.getElementById('leaflet-map');
+      if (!el) return;
+      const cidade = CIDADES[Math.floor(Math.random() * CIDADES.length)];
+      const jitter = () => (Math.random() - 0.5) * 0.01;
+      const lat = cidade.lat + jitter();
+      const lng = cidade.lng + jitter();
+      const map = L.map('leaflet-map').setView([lat, lng], 16);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap'
+      }).addTo(map);
+      const icon = L.divIcon({
+        html: `<div style="background:var(--green-dark);color:#fff;border-radius:50%;width:40px;height:40px;display:flex;align-items:center;justify-content:center;font-size:20px;box-shadow:0 2px 8px rgba(0,0,0,.3);border:3px solid #fff">${biz.icon}</div>`,
+        iconSize: [40, 40],
+        iconAnchor: [20, 40],
+        className: ''
+      });
+      L.marker([lat, lng], { icon }).addTo(map)
+        .bindPopup(`<b>${biz.name}</b><br>${biz.address}`, { maxWidth: 200 })
+        .openPopup();
+      this.leafletMap = map;
+    },
+  }
+});
+</script>
+
+
+<script id="pwa-studio-builder-sw-link">
+    // Registro automático de Service Worker
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+          .then(reg => console.log('Service Worker registrado com sucesso:', reg.scope))
+          .catch(err => console.error('Falha ao registrar Service Worker:', err));
+      });
+    }
+
+    // Gerenciador do Prompt de Instalação (PWA)
+    let deferredPrompt;
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      // Mostra o botão/banner personalizado se houver um id "pwa-install-btn"
+      const installBtn = document.getElementById('pwa-install-btn');
+      if (installBtn) {
+        installBtn.style.display = 'inline-flex';
+        installBtn.addEventListener('click', () => {
+          deferredPrompt.prompt();
+          deferredPrompt.userChoice.then((choiceResult) => {
+            if (choiceResult.outcome === 'accepted') {
+              console.log('Usuário aceitou a instalação');
+            }
+            deferredPrompt = null;
+          });
+        });
+      }
+    });
+  </script></body></html>
